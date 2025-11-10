@@ -13,14 +13,14 @@ import tkinter as tk
 from tkinter import messagebox, scrolledtext, ttk
 
 # ---------------------------
-# Carregar a biblioteca C
+# Carregar biblioteca C ou usar módulo Python como fallback
 # ---------------------------
-# Aqui tentamos abrir a biblioteca compilada em C que faz o
-# trabalho de salvar/ler usuários. Dependendo do sistema operacional
-# o nome do arquivo muda (.dll no Windows, .so no Linux, .dylib no mac).
 lib = None
+usar_python_puro = False
+
+# Primeiro tenta carregar a biblioteca C nativa
 if platform.system() == "Windows":
-    candidates = ["userdb.dll"]
+    candidates = ["libuserdb.dll", "userdb.dll"]
 elif platform.system() == "Darwin":
     # no macOS prefira .dylib; alguns .so podem ser Linux e falhar
     candidates = ["libuserdb.dylib", "libuserdb.so"]
@@ -36,28 +36,30 @@ for name in candidates:
     try:
         # aqui tentamos carregar a biblioteca C
         lib = ctypes.CDLL(path)
+        print(f"✓ Biblioteca C carregada: {name}")
         break
     except OSError as e:
         last_exc = e
 
+# Se não conseguiu carregar biblioteca C, usa módulo Python puro
 if lib is None:
-    # se não conseguiu carregar nada, mostramos erro e paramos a execução
-    msg = (
-        f"Não foi possível carregar a biblioteca nativa. Arquivos tentados: {candidates}."
-    )
-    if last_exc:
-        msg += f" Erro ao carregar: {last_exc}"
-    raise OSError(msg)
+    print("⚠ Biblioteca C não encontrada. Usando implementação Python pura.")
+    try:
+        import userdb_python as lib
+        usar_python_puro = True
+    except ImportError as e:
+        msg = (
+            f"Não foi possível carregar a biblioteca nativa ou o módulo Python. "
+            f"Arquivos C tentados: {candidates}. Erro: {last_exc}"
+        )
+        raise OSError(msg)
 
-# ---------------------------------------------------------------
-# Dizer para o Python como as funções C devem receber os dados
-# ---------------------------------------------------------------
-# Essas linhas dizem ao ctypes quais tipos cada função da biblioteca C usa.
-lib.adicionar_usuario.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_int]
-lib.adicionar_usuario.restype = None
-
-lib.listar_usuarios.argtypes = []
-lib.listar_usuarios.restype = None
+# Se carregou biblioteca C, configura os tipos das funções
+if not usar_python_puro:
+    lib.adicionar_usuario.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_int]
+    lib.adicionar_usuario.restype = None
+    lib.listar_usuarios.argtypes = []
+    lib.listar_usuarios.restype = None
 
 # ---------------------------------------------------------------
 # Paleta de cores e fontes — só para organizar o visual
@@ -636,12 +638,12 @@ def mostrar_tela_cadastro():
         label_regra_esp.config(fg='red' if not any(not c.isalnum() for c in senha) else 'green')
     entry_senha.bind('<KeyRelease>', atualizar_regras)
 
-    # função que grava o usuário usando a biblioteca C
+    # função que grava o usuário usando a biblioteca C ou Python
     def cadastrar_usuario_tela():
-        nome = entry_nome.get().strip().encode('utf-8')
+        nome = entry_nome.get().strip()
         senha_str = entry_senha.get()
-        senha = senha_str.strip().encode('utf-8')
-        email = entry_email.get().strip().encode('utf-8')
+        senha = senha_str.strip()
+        email = entry_email.get().strip()
         try:
             idade = int(entry_idade.get())
         except ValueError:
@@ -666,8 +668,16 @@ def mostrar_tela_cadastro():
         if not nome or not senha or not email:
             messagebox.showwarning("Aviso", "Preencha todos os campos!")
             return
-        # chama a função C para adicionar usuário
-        lib.adicionar_usuario(nome, senha, email, idade)
+        
+        # Chama a função adequada (C ou Python)
+        if usar_python_puro:
+            # Módulo Python espera strings
+            lib.adicionar_usuario(nome, senha, email, idade)
+        else:
+            # Biblioteca C espera bytes
+            lib.adicionar_usuario(nome.encode('utf-8'), senha.encode('utf-8'), 
+                                 email.encode('utf-8'), idade)
+        
         messagebox.showinfo("Sucesso", "Usuário cadastrado com sucesso!")
         mostrar_tela_login()
 
