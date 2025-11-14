@@ -34,17 +34,8 @@ typedef struct {
     int faltas;
 } Falta;
 
-// Estrutura para funcionário
-typedef struct {
-    char nome[50];
-    char cargo[30];
-    char email[50];
-    int idade;
-} Funcionario;
-
 #define NOTASFILE "notas.dat"
 #define FALTASFILE "faltas.dat"
-#define FUNCIONARIOSFILE "funcionarios.dat"
 
 // ------------------------------------------------------------
 // Função: adiciona um usuário no arquivo
@@ -215,48 +206,6 @@ void listar_faltas_usuario(const char *nome) {
     }
     if (!encontrou) {
         printf("Nenhuma falta para este usuário.\n");
-    }
-    fclose(f);
-}
-
-// Adiciona um funcionário
-void adicionar_funcionario(const char *nome, const char *cargo, const char *email, int idade) {
-    FILE *f = fopen(FUNCIONARIOSFILE, "ab");
-    if (!f) {
-        printf("Erro ao abrir o arquivo de funcionários.\n");
-        return;
-    }
-    Funcionario func;
-    strncpy(func.nome, nome, sizeof(func.nome) - 1);
-    func.nome[sizeof(func.nome) - 1] = '\0';
-    strncpy(func.cargo, cargo, sizeof(func.cargo) - 1);
-    func.cargo[sizeof(func.cargo) - 1] = '\0';
-    strncpy(func.email, email, sizeof(func.email) - 1);
-    func.email[sizeof(func.email) - 1] = '\0';
-    func.idade = idade;
-    fwrite(&func, sizeof(Funcionario), 1, f);
-    fclose(f);
-}
-
-// Lista todos os funcionários
-void listar_funcionarios() {
-    FILE *f = fopen(FUNCIONARIOSFILE, "rb");
-    if (!f) {
-        printf("Nenhum funcionário encontrado.\n");
-        return;
-    }
-    Funcionario func;
-    int count = 0;
-    printf("=== Lista de Funcionários ===\n");
-    while (fread(&func, sizeof(Funcionario), 1, f) == 1) {
-        printf("Nome : %s\n", func.nome);
-        printf("Cargo: %s\n", func.cargo);
-        printf("Email: %s\n", func.email);
-        printf("Idade: %d\n\n", func.idade);
-        count++;
-    }
-    if (count == 0) {
-        printf("Nenhum funcionário cadastrado.\n");
     }
     fclose(f);
 }
